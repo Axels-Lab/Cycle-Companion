@@ -1,0 +1,422 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(userId) {
+      return /databases/$(database)/documents/users/$(userId);
+    }
+
+    function couplePath(coupleId) {
+      return /databases/$(database)/documents/couples/$(coupleId);
+    }
+
+    function invitePath(code) {
+      return /databases/$(database)/documents/inviteCodes/$(code);
+    }
+
+    function validRole(role) {
+      return role == 'tracker' || role == 'partner';
+    }
+
+    function validDisplayProfile(profile) {
+      return profile is map
+        && profile.keys().hasOnly(['displayName'])
+        && profile.keys().hasAll(['displayName'])
+        && profile.displayName is string
+        && profile.displayName.size() > 0
+        && profile.displayName.size() <= 40;
+    }
+
+    function validMood(mood) {
+      return mood in [
+        'great',
+        'good',
+        'okay',
+        'low',
+        'rough',
+        'calm',
+        'content',
+        'hopeful',
+        'affectionate',
+        'energized',
+        'focused',
+        'playful',
+        'tired',
+        'low_energy',
+        'sad',
+        'anxious',
+        'worried',
+        'irritable',
+        'frustrated',
+        'overwhelmed',
+        'sensitive',
+        'lonely',
+        'restless',
+        'numb',
+        'mixed'
+      ];
+    }
+
+    function isMember(coupleId) {
+      let uid = request.auth.uid;
+      let user = get(userPath(uid)).data;
+      let couple = get(couplePath(coupleId)).data;
+      return signedIn()
+        && exists(userPath(uid))
+        && exists(couplePath(coupleId))
+        && user.coupleId == coupleId
+        && couple.members.hasAny([uid])
+        && couple.roles[uid] == user.role;
+    }
+
+    function canReadInviteTarget(coupleId) {
+      let code = resource.data.inviteCode;
+      return signedIn()
+        && code is string
+        && exists(invitePath(code))
+        && get(invitePath(code)).data.coupleId == coupleId;
+    }
+
+    function isTracker(coupleId) {
+      return isMember(coupleId)
+        && get(userPath(request.auth.uid)).data.role == 'tracker';
+    }
+
+    function isProfileUpdate(coupleId) {
+      let updatedProfiles = request.resource.data.memberProfiles;
+      let oldProfiles = resource.data.get('memberProfiles', {});
+      return isMember(coupleId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['memberProfiles'])
+        && updatedProfiles is map
+        && updatedProfiles.keys().hasOnly(resource.data.members)
+        && updatedProfiles.diff(oldProfiles).affectedKeys()
+          .hasOnly([request.auth.uid])
+        && validDisplayProfile(updatedProfiles[request.auth.uid]);
+    }
+
+    function validDailyLog(data) {
+      return data.keys().hasOnly([
+          'dateKey',
+          'isPeriodDay',
+          'mood',
+          'moodTags',
+          'symptoms',
+          'notes',
+          'flow',
+          'painLevel',
+          'createdBy',
+          'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'dateKey',
+          'isPeriodDay',
+          'mood',
+          'symptoms',
+          'notes',
+          'createdBy',
+          'updatedAt'
+        ])
+        && data.dateKey is string
+        && data.dateKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.isPeriodDay is bool
+        && (data.mood == null || validMood(data.mood))
+        && (data.get('moodTags', []) is list
+          && data.get('moodTags', []).size() <= 25
+          && data.get('moodTags', []).hasOnly([
+            'great',
+            'good',
+            'okay',
+            'low',
+            'rough',
+            'calm',
+            'content',
+            'hopeful',
+            'affectionate',
+            'energized',
+            'focused',
+            'playful',
+            'tired',
+            'low_energy',
+            'sad',
+            'anxious',
+            'worried',
+            'irritable',
+            'frustrated',
+            'overwhelmed',
+            'sensitive',
+            'lonely',
+            'restless',
+            'numb',
+            'mixed'
+          ]))
+        && data.symptoms is list
+        && data.symptoms.size() <= 8
+        && data.symptoms.hasOnly([
+          'Cramps',
+          'Headache',
+          'Fatigue',
+          'Bloating',
+          'Tenderness',
+          'Backache',
+          'Nausea',
+          'Other'
+        ])
+        && data.notes is string
+        && data.notes.size() <= 300
+        && (data.get('flow', null) == null
+          || (data.isPeriodDay && data.flow in [
+            'spotting',
+            'light',
+            'medium',
+            'heavy'
+          ]))
+        && (data.get('painLevel', null) == null
+          || (data.painLevel is int
+            && data.painLevel >= 1
+            && data.painLevel <= 10))
+        && data.createdBy == request.auth.uid
+        && data.updatedAt == request.time
+        && (data.isPeriodDay
+          || data.mood != null
+          || data.get('moodTags', []).size() > 0
+          || data.symptoms.size() > 0
+          || data.notes.size() > 0
+          || data.get('flow', null) != null
+          || data.get('painLevel', null) != null);
+    }
+
+    function validDailyLogRevision(data, dateKey) {
+      return data.keys().hasOnly([
+          'dateKey',
+          'isPeriodDay',
+          'mood',
+          'moodTags',
+          'symptoms',
+          'notes',
+          'flow',
+          'painLevel',
+          'updatedAt',
+          'editedAt',
+          'editedBy'
+        ])
+        && data.keys().hasAll([
+          'dateKey',
+          'isPeriodDay',
+          'mood',
+          'moodTags',
+          'symptoms',
+          'notes',
+          'flow',
+          'painLevel',
+          'updatedAt',
+          'editedAt',
+          'editedBy'
+        ])
+        && data.dateKey == dateKey
+        && data.isPeriodDay is bool
+        && (data.mood == null || validMood(data.mood))
+        && data.moodTags is list
+        && data.moodTags.size() <= 25
+        && data.moodTags.hasOnly([
+          'great',
+          'good',
+          'okay',
+          'low',
+          'rough',
+          'calm',
+          'content',
+          'hopeful',
+          'affectionate',
+          'energized',
+          'focused',
+          'playful',
+          'tired',
+          'low_energy',
+          'sad',
+          'anxious',
+          'worried',
+          'irritable',
+          'frustrated',
+          'overwhelmed',
+          'sensitive',
+          'lonely',
+          'restless',
+          'numb',
+          'mixed'
+        ])
+        && data.symptoms is list
+        && data.symptoms.size() <= 8
+        && data.symptoms.hasOnly([
+          'Cramps',
+          'Headache',
+          'Fatigue',
+          'Bloating',
+          'Tenderness',
+          'Backache',
+          'Nausea',
+          'Other'
+        ])
+        && data.notes is string
+        && data.notes.size() <= 300
+        && (data.flow == null
+          || (data.isPeriodDay && data.flow in [
+            'spotting',
+            'light',
+            'medium',
+            'heavy'
+          ]))
+        && (data.painLevel == null
+          || (data.painLevel is int
+            && data.painLevel >= 1
+            && data.painLevel <= 10))
+        && data.updatedAt is timestamp
+        && data.editedAt == request.time
+        && data.editedBy == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow get: if signedIn()
+        && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['coupleId', 'role'])
+        && request.resource.data.keys().hasAll(['coupleId', 'role'])
+        && validRole(request.resource.data.role)
+        && getAfter(couplePath(request.resource.data.coupleId)).data.members
+          .hasAny([userId])
+        && getAfter(couplePath(request.resource.data.coupleId)).data.roles[userId]
+          == request.resource.data.role;
+      allow update, delete: if false;
+    }
+
+    match /couples/{coupleId} {
+      allow get: if isMember(coupleId) || canReadInviteTarget(coupleId);
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'members',
+          'roles',
+          'memberProfiles',
+          'inviteCode',
+          'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'members',
+          'roles',
+          'memberProfiles',
+          'inviteCode',
+          'createdAt'
+        ])
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.roles.keys().hasOnly([request.auth.uid])
+        && validRole(request.resource.data.roles[request.auth.uid])
+        && request.resource.data.memberProfiles.keys()
+          .hasOnly([request.auth.uid])
+        && validDisplayProfile(
+          request.resource.data.memberProfiles[request.auth.uid]
+        )
+        && request.resource.data.inviteCode is string
+        && request.resource.data.createdAt == request.time
+        && getAfter(userPath(request.auth.uid)).data.coupleId == coupleId
+        && getAfter(userPath(request.auth.uid)).data.role
+          == request.resource.data.roles[request.auth.uid]
+        && getAfter(invitePath(request.resource.data.inviteCode)).data.coupleId
+          == coupleId;
+      allow update: if isProfileUpdate(coupleId) || (signedIn()
+        && resource.data.members.size() == 1
+        && request.resource.data.members.size() == 2
+        && request.resource.data.members.hasAll(resource.data.members)
+        && request.resource.data.members.hasAny([request.auth.uid])
+        && !resource.data.members.hasAny([request.auth.uid])
+        && request.resource.data.roles.keys().hasAll(
+          request.resource.data.members
+        )
+        && request.resource.data.roles.keys().hasOnly(
+          request.resource.data.members
+        )
+        && request.resource.data.memberProfiles is map
+        && request.resource.data.memberProfiles.keys().hasOnly(
+          request.resource.data.members
+        )
+        && validDisplayProfile(
+          request.resource.data.memberProfiles[request.auth.uid]
+        )
+        && request.resource.data.memberProfiles.get(
+          resource.data.members[0],
+          {}
+        ) == resource.data.get('memberProfiles', {}).get(
+          resource.data.members[0],
+          {}
+        )
+        && request.resource.data.roles[resource.data.members[0]]
+          == resource.data.roles[resource.data.members[0]]
+        && validRole(request.resource.data.roles[request.auth.uid])
+        && request.resource.data.roles[request.auth.uid]
+          != resource.data.roles[resource.data.members[0]]
+        && resource.data.inviteCode is string
+        && get(invitePath(resource.data.inviteCode)).data.coupleId == coupleId
+        && !existsAfter(invitePath(resource.data.inviteCode))
+        && request.resource.data.inviteCode == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'members',
+          'roles',
+          'memberProfiles',
+          'inviteCode',
+          'pairedAt'
+        ])
+        && getAfter(userPath(request.auth.uid)).data.coupleId == coupleId
+        && getAfter(userPath(request.auth.uid)).data.role
+          == request.resource.data.roles[request.auth.uid]
+        && request.resource.data.pairedAt == request.time
+        && !resource.data.keys().hasAny(['pairedAt']));
+      allow delete: if false;
+
+      match /dailyLogs/{dateKey} {
+        allow read: if isMember(coupleId);
+        allow create, update: if isTracker(coupleId)
+          && validDailyLog(request.resource.data)
+          && request.resource.data.dateKey == dateKey;
+        allow delete: if isTracker(coupleId);
+
+        match /revisions/{revisionId} {
+          allow read: if isMember(coupleId);
+          allow create: if isTracker(coupleId)
+            && validDailyLogRevision(request.resource.data, dateKey);
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    match /inviteCodes/{code} {
+      allow get: if signedIn();
+      allow list, update: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['coupleId', 'createdAt'])
+        && request.resource.data.keys().hasAll(['coupleId', 'createdAt'])
+        && request.resource.data.coupleId is string
+        && request.resource.data.createdAt == request.time
+        && getAfter(couplePath(request.resource.data.coupleId)).data.inviteCode
+          == code
+        && getAfter(couplePath(request.resource.data.coupleId)).data.members
+          == [request.auth.uid]
+        && getAfter(userPath(request.auth.uid)).data.coupleId
+          == request.resource.data.coupleId;
+      allow delete: if signedIn()
+        && resource.data.coupleId is string
+        && getAfter(couplePath(resource.data.coupleId)).data.members.size() == 2
+        && getAfter(couplePath(resource.data.coupleId)).data.members
+          .hasAny([request.auth.uid])
+        && getAfter(couplePath(resource.data.coupleId)).data.roles[request.auth.uid]
+          == getAfter(userPath(request.auth.uid)).data.role;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

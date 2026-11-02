@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "756567511002",
+    "project_id": "cycle-companion-9df05",
+    "storage_bucket": "cycle-companion-9df05.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:756567511002:android:57881aa9148aa0c9243ae3",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "756567511002-f2foul229c2avuotd67m0446sh3s6e8b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC--1bNXaHPjnKhlJ571PEH1R7i9blYSxI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "756567511002-f2foul229c2avuotd67m0446sh3s6e8b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
