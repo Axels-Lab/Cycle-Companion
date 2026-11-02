@@ -35,7 +35,7 @@ Firebase app configuration is currently included for Android and web. Other plat
 From the repository root:
 
 ```powershell
-cd flutter_application_1
+cd "Cycle Companion"
 flutter pub get
 flutter run
 ```
