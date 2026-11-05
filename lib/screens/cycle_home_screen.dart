@@ -1113,6 +1113,8 @@ class _MoodPickerSheetState extends State<_MoodPickerSheet> {
       'worried',
       'irritable',
       'frustrated',
+      'cranky',
+      'grumpy',
       'overwhelmed',
       'sensitive',
       'restless',

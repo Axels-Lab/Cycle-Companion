@@ -33,6 +33,8 @@ class DailyLog {
     'worried': 'Worried',
     'irritable': 'Irritable',
     'frustrated': 'Frustrated',
+    'cranky': 'Cranky',
+    'grumpy': 'Grumpy',
     'overwhelmed': 'Overwhelmed',
     'sensitive': 'Sensitive',
     'lonely': 'Lonely',

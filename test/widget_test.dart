@@ -12,6 +12,8 @@ void main() {
       expect(DailyLog.moods['need_space'], 'I need some space');
       expect(DailyLog.moods['want_company'], 'I want company');
       expect(DailyLog.moods['need_support'], 'I need support');
+      expect(DailyLog.moods['cranky'], 'Cranky');
+      expect(DailyLog.moods['grumpy'], 'Grumpy');
     });
 
     test('creates a stable local date key', () {

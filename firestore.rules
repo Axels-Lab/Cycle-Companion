@@ -51,12 +51,25 @@ service cloud.firestore {
         'worried',
         'irritable',
         'frustrated',
+        'cranky',
+        'grumpy',
         'overwhelmed',
         'sensitive',
         'lonely',
         'restless',
         'numb',
-        'mixed'
+        'mixed',
+        'dont_talk_to_me',
+        'leave_me_alone',
+        'need_space',
+        'not_ready_to_talk',
+        'check_in_later',
+        'want_company',
+        'need_comfort',
+        'need_reassurance',
+        'need_support',
+        'overstimulated',
+        'socially_drained'
       ];
     }
 
@@ -146,12 +159,25 @@ service cloud.firestore {
             'worried',
             'irritable',
             'frustrated',
+            'cranky',
+            'grumpy',
             'overwhelmed',
             'sensitive',
             'lonely',
             'restless',
             'numb',
-            'mixed'
+            'mixed',
+            'dont_talk_to_me',
+            'leave_me_alone',
+            'need_space',
+            'not_ready_to_talk',
+            'check_in_later',
+            'want_company',
+            'need_comfort',
+            'need_reassurance',
+            'need_support',
+            'overstimulated',
+            'socially_drained'
           ]))
         && data.symptoms is list
         && data.symptoms.size() <= 8
@@ -241,12 +267,25 @@ service cloud.firestore {
           'worried',
           'irritable',
           'frustrated',
+          'cranky',
+          'grumpy',
           'overwhelmed',
           'sensitive',
           'lonely',
           'restless',
           'numb',
-          'mixed'
+          'mixed',
+          'dont_talk_to_me',
+          'leave_me_alone',
+          'need_space',
+          'not_ready_to_talk',
+          'check_in_later',
+          'want_company',
+          'need_comfort',
+          'need_reassurance',
+          'need_support',
+          'overstimulated',
+          'socially_drained'
         ])
         && data.symptoms is list
         && data.symptoms.size() <= 8
