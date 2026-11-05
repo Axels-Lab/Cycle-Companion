@@ -39,6 +39,17 @@ class DailyLog {
     'restless': 'Restless',
     'numb': 'Numb',
     'mixed': 'Mixed / unsure',
+    'dont_talk_to_me': "Don't talk to me",
+    'leave_me_alone': 'Leave me alone',
+    'need_space': 'I need some space',
+    'not_ready_to_talk': 'Not ready to talk',
+    'check_in_later': 'Please check in later',
+    'want_company': 'I want company',
+    'need_comfort': 'I need comfort',
+    'need_reassurance': 'I need reassurance',
+    'need_support': 'I need support',
+    'overstimulated': 'Overstimulated',
+    'socially_drained': 'Socially drained',
   };
 
   static const symptomOptions = <String>[

@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../models/daily_log.dart';
+import 'daily_log_notification_summary.dart';
 
 class DailyLogService {
   DailyLogService({FirebaseFirestore? firestore, FirebaseAuth? auth})
@@ -11,6 +15,7 @@ class DailyLogService {
 
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
+  static const _pushApiUrl = String.fromEnvironment('PUSH_API_URL');
 
   CollectionReference<Map<String, dynamic>> _logs(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('dailyLogs');
@@ -54,32 +59,118 @@ class DailyLogService {
 
     final reference = _logs(coupleId).doc(log.dateKey);
     if (log.isEmpty) {
-      await reference.delete();
+      final previousData = await _db.runTransaction<Map<String, dynamic>?>((
+        transaction,
+      ) async {
+        final snapshot = await transaction.get(reference);
+        if (!snapshot.exists) return null;
+        final data = snapshot.data();
+        transaction.delete(reference);
+        return data;
+      });
+      if (previousData != null) {
+        await _notifyViewer(
+          user,
+          coupleId,
+          DailyLogNotificationSummary.forChange(
+            dateKey: log.dateKey,
+            previousData: previousData,
+            nextLog: null,
+          ),
+        );
+      }
       return;
     }
 
     final revisionReference = reference.collection('revisions').doc();
-    await _db.runTransaction<void>((transaction) async {
-      final currentSnapshot = await transaction.get(reference);
-      final currentData = currentSnapshot.data();
-      final newData = log.toFirestore();
+    final result = await _db
+        .runTransaction<({bool changed, Map<String, dynamic>? previousData})>((
+          transaction,
+        ) async {
+          final currentSnapshot = await transaction.get(reference);
+          final currentData = currentSnapshot.data();
+          final newData = log.toFirestore();
+          final contentChanged =
+              !currentSnapshot.exists ||
+              !_hasSameContent(currentData!, newData, log.dateKey);
 
-      if (currentSnapshot.exists &&
-          !_hasSameContent(currentData!, newData, log.dateKey)) {
-        transaction.set(revisionReference, {
-          ..._revisionSnapshot(log.dateKey, currentData),
-          'updatedAt': currentData['updatedAt'] ?? FieldValue.serverTimestamp(),
-          'editedAt': FieldValue.serverTimestamp(),
-          'editedBy': user.uid,
+          if (currentSnapshot.exists && contentChanged) {
+            final previousData = currentData!;
+            transaction.set(revisionReference, {
+              ..._revisionSnapshot(log.dateKey, previousData),
+              'updatedAt':
+                  previousData['updatedAt'] ?? FieldValue.serverTimestamp(),
+              'editedAt': FieldValue.serverTimestamp(),
+              'editedBy': user.uid,
+            });
+          }
+
+          transaction.set(reference, {
+            ...newData,
+            'createdBy': currentData?['createdBy'] ?? user.uid,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          return (changed: contentChanged, previousData: currentData);
         });
-      }
+    if (result.changed) {
+      await _notifyViewer(
+        user,
+        coupleId,
+        DailyLogNotificationSummary.forChange(
+          dateKey: log.dateKey,
+          previousData: result.previousData,
+          nextLog: log,
+        ),
+      );
+    }
+  }
 
-      transaction.set(reference, {
-        ...newData,
-        'createdBy': currentData?['createdBy'] ?? user.uid,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    });
+  Future<void> _notifyViewer(
+    User user,
+    String coupleId,
+    DailyLogNotificationSummary summary,
+  ) async {
+    if (_pushApiUrl.isEmpty) {
+      debugPrint(
+        'Push notification not sent: configure PUSH_API_URL for this build.',
+      );
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(_pushApiUrl);
+      if (uri.scheme != 'https' || uri.host.isEmpty) {
+        throw const FormatException('PUSH_API_URL must be an HTTPS URL.');
+      }
+      final idToken = await user.getIdToken();
+      if (idToken == null) {
+        throw StateError(
+          'Could not get a Firebase ID token for push delivery.',
+        );
+      }
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Authorization': 'Bearer $idToken',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'coupleId': coupleId,
+              'title': summary.title,
+              'message': summary.body,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        debugPrint(
+          'Push notification request failed with HTTP ${response.statusCode}.',
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Push notification request failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Map<String, Object?> _revisionSnapshot(

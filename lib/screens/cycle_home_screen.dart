@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +8,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../models/daily_log.dart';
 import '../services/couple_service.dart';
 import '../services/daily_log_service.dart';
+import '../services/push_notification_service.dart';
 import 'profile_screen.dart';
 import 'reminder_settings_screen.dart';
 
@@ -25,8 +28,30 @@ class CycleHomeScreen extends StatefulWidget {
 
 class _CycleHomeScreenState extends State<CycleHomeScreen> {
   final _service = DailyLogService();
+  final _pushNotifications = PushNotificationService();
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.isTracker) unawaited(_initializePushNotifications());
+  }
+
+  Future<void> _initializePushNotifications() async {
+    try {
+      await _pushNotifications.initialize();
+    } catch (error, stackTrace) {
+      debugPrint('Could not initialize push notifications: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_pushNotifications.dispose());
+    super.dispose();
+  }
 
   Future<void> _openEditor(DailyLog? log) async {
     await showModalBottomSheet<void>(
@@ -55,12 +80,17 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
 
   Future<void> _signOut() async {
     try {
+      if (!widget.isTracker) await _pushNotifications.unregister();
       await FirebaseAuth.instance.signOut();
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message ?? 'Could not sign out.')),
       );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not sign out: $error')));
     }
   }
 
@@ -1088,6 +1118,19 @@ class _MoodPickerSheetState extends State<_MoodPickerSheet> {
       'restless',
       'low',
       'rough',
+    ],
+    'Space & support': [
+      'dont_talk_to_me',
+      'leave_me_alone',
+      'need_space',
+      'not_ready_to_talk',
+      'check_in_later',
+      'want_company',
+      'need_comfort',
+      'need_reassurance',
+      'need_support',
+      'overstimulated',
+      'socially_drained',
     ],
     'Neutral & mixed': ['okay', 'mixed'],
   };

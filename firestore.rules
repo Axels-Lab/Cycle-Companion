@@ -292,6 +292,19 @@ service cloud.firestore {
         && getAfter(couplePath(request.resource.data.coupleId)).data.roles[userId]
           == request.resource.data.role;
       allow update, delete: if false;
+
+      match /devices/{deviceId} {
+        allow read: if false;
+        allow create, update: if signedIn()
+         && request.auth.uid == userId
+         && request.resource.data.keys().hasOnly(['token', 'updatedAt'])
+         && request.resource.data.keys().hasAll(['token', 'updatedAt'])
+         && request.resource.data.token is string
+         && request.resource.data.token.size() > 0
+         && request.resource.data.token.size() <= 4096
+         && request.resource.data.updatedAt == request.time;
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
     }
 
     match /couples/{coupleId} {

@@ -25,6 +25,14 @@ migrate_working_dir/
 
 # Flutter/Dart/Pub related
 .firebase/
+.wrangler/
+.dev.vars*
+.env*
+*service-account*.json
+*service_account*.json
+*firebase-adminsdk*.json
+*.pem
+*.p12
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
