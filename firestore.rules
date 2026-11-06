@@ -138,7 +138,7 @@ service cloud.firestore {
         && data.isPeriodDay is bool
         && (data.mood == null || validMood(data.mood))
         && (data.get('moodTags', []) is list
-          && data.get('moodTags', []).size() <= 25
+          && data.get('moodTags', []).size() <= 38
           && data.get('moodTags', []).hasOnly([
             'great',
             'good',
@@ -246,7 +246,7 @@ service cloud.firestore {
         && data.isPeriodDay is bool
         && (data.mood == null || validMood(data.mood))
         && data.moodTags is list
-        && data.moodTags.size() <= 25
+        && data.moodTags.size() <= 38
         && data.moodTags.hasOnly([
           'great',
           'good',
