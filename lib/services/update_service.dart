@@ -101,7 +101,7 @@ class UpdateService {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Cycle Companion ${latestVersion} is available. '
+                    'Cycle Companion $latestVersion is available. '
                     'You currently have ${packageInfo.version}.',
                   ),
                   if (releaseNotes.isNotEmpty) ...[
