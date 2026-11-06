@@ -182,14 +182,14 @@ service cloud.firestore {
         && data.symptoms is list
         && data.symptoms.size() <= 8
         && data.symptoms.hasOnly([
-          'Cramps',
-          'Headache',
-          'Fatigue',
-          'Bloating',
-          'Tenderness',
-          'Backache',
-          'Nausea',
-          'Other'
+          '🩸 Cramps',
+          '🤕 Headache',
+          '😴 Fatigue',
+          '🎈 Bloating',
+          '💗 Tenderness',
+          '🩹 Backache',
+          '🤢 Nausea',
+          '➕ Other',
         ])
         && data.notes is string
         && data.notes.size() <= 300
@@ -290,14 +290,14 @@ service cloud.firestore {
         && data.symptoms is list
         && data.symptoms.size() <= 8
         && data.symptoms.hasOnly([
-          'Cramps',
-          'Headache',
-          'Fatigue',
-          'Bloating',
-          'Tenderness',
-          'Backache',
-          'Nausea',
-          'Other'
+          '🩸 Cramps',
+          '🤕 Headache',
+          '😴 Fatigue',
+          '🎈 Bloating',
+          '💗 Tenderness',
+          '🩹 Backache',
+          '🤢 Nausea',
+          '➕ Other',
         ])
         && data.notes is string
         && data.notes.size() <= 300

@@ -7,13 +7,13 @@ import 'package:flutter_application_1/services/daily_log_notification_summary.da
 void main() {
   group('DailyLog', () {
     test('includes boundary and support moods in the mood choices', () {
-      expect(DailyLog.moods['dont_talk_to_me'], "Don't talk to me");
-      expect(DailyLog.moods['leave_me_alone'], 'Leave me alone');
-      expect(DailyLog.moods['need_space'], 'I need some space');
-      expect(DailyLog.moods['want_company'], 'I want company');
-      expect(DailyLog.moods['need_support'], 'I need support');
-      expect(DailyLog.moods['cranky'], 'Cranky');
-      expect(DailyLog.moods['grumpy'], 'Grumpy');
+      expect(DailyLog.moods['dont_talk_to_me'], "🚫 Don't talk to me");
+      expect(DailyLog.moods['leave_me_alone'], '🚪 Leave me alone');
+      expect(DailyLog.moods['need_space'], '🧘 I need some space');
+      expect(DailyLog.moods['want_company'], '🫶 I want company');
+      expect(DailyLog.moods['need_support'], '🫂 I need support');
+      expect(DailyLog.moods['cranky'], '😒 Cranky');
+      expect(DailyLog.moods['grumpy'], '😠 Grumpy');
     });
 
     test('creates a stable local date key', () {
@@ -143,7 +143,7 @@ void main() {
         nextLog: const DailyLog(
           dateKey: '2026-03-05',
           isPeriodDay: true,
-          mood: 'anxious',
+          mood: '😰 Anxious',
           symptoms: ['Cramps'],
           notes: 'private note text',
           flow: 'light',
@@ -154,9 +154,9 @@ void main() {
       expect(summary.title, 'Daily entry updated');
       expect(summary.body, contains('Mar 5'));
       expect(summary.body, contains('period day logged'));
-      expect(summary.body, contains('Mood: Anxious'));
+      expect(summary.body, contains('Mood: 😰 Anxious'));
       expect(summary.body, contains('symptoms added: Cramps'));
-      expect(summary.body, contains('Flow: Light'));
+      expect(summary.body, contains('Flow: 🩸 Light'));
       expect(summary.body, contains('Pain level: 4/10'));
       expect(summary.body, contains('Note updated'));
       expect(summary.body, isNot(contains('private note text')));
