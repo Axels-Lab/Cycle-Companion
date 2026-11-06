@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../services/app_theme_controller.dart';
 import '../services/couple_service.dart';
+import '../services/update_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({required this.coupleId, super.key});
@@ -67,6 +68,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _savingTheme = false);
     }
+  }
+
+  Future<void> _checkForUpdates() async {
+    await UpdateService().checkForUpdate(context, manual: true);
   }
 
   String _roleLabel(String? role) => switch (role) {
@@ -308,6 +313,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                       ],
                     ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(Icons.system_update_alt),
+                  title: const Text('App updates'),
+                  subtitle: const Text('Check for the latest version of Cycle Companion.'),
+                  trailing: TextButton(
+                    onPressed: _checkForUpdates,
+                    child: const Text('Check'),
                   ),
                 ),
               ),
