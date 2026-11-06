@@ -61,6 +61,7 @@ jobs:
           PUSH_API_URL: ${{ vars.PUSH_API_URL }}
         run: |
           flutter build apk --release \
+            --target-platform android-arm64 \
             --dart-define="PUSH_API_URL=$PUSH_API_URL"
 
       - name: Build release AAB
