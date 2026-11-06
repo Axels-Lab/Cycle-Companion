@@ -119,6 +119,7 @@ class PushNotificationService {
           channelDescription: _channelDescription,
           importance: Importance.high,
           priority: Priority.high,
+          icon: 'ic_stat_notification',
         ),
       ),
     );
