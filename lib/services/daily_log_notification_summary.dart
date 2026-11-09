@@ -42,7 +42,7 @@ class DailyLogNotificationSummary {
 
     if (previous?.isPeriodDay != nextLog.isPeriodDay) {
       changes.add(
-        nextLog.isPeriodDay ? 'period day logged' : 'period day removed',
+        nextLog.isPeriodDay ? 'Period day logged' : 'Period day removed',
       );
     }
 

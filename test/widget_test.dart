@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/models/daily_log.dart';
 import 'package:flutter_application_1/services/couple_service.dart';
 import 'package:flutter_application_1/services/daily_log_notification_summary.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 
 void main() {
   group('DailyLog', () {
@@ -126,6 +127,43 @@ void main() {
       expect(CycleHistory.fromLogs(const []).periods, isEmpty);
       expect(CycleHistory.fromLogs(const []).averageCycleLengthDays, isNull);
     });
+    test('parses the date key into a DateTime', () {
+      const log = DailyLog(
+        dateKey: '2026-03-05',
+        isPeriodDay: false,
+        mood: null,
+        symptoms: [],
+        notes: '',
+      );
+
+      expect(log.date, DateTime(2026, 3, 5));
+    });
+
+    test('creates a daily log from a Firestore document', () async {
+      final firestore = FakeFirebaseFirestore();
+
+      await firestore.collection('dailyLogs').doc('2026-03-05').set({
+        'isPeriodDay': true,
+        'mood': 'low',
+        'symptoms': ['Cramps'],
+        'notes': 'Taking it slow',
+        'flow': 'light',
+        'painLevel': 4,
+      });
+
+      final snapshot = await firestore.collection('dailyLogs').get();
+
+      final log = DailyLog.fromDocument(snapshot.docs.first);
+
+      expect(log.dateKey, '2026-03-05');
+      expect(log.date, DateTime(2026, 3, 5));
+      expect(log.isPeriodDay, isTrue);
+      expect(log.mood, 'low');
+      expect(log.symptoms, ['Cramps']);
+      expect(log.notes, 'Taking it slow');
+      expect(log.flow, 'light');
+      expect(log.painLevel, 4);
+    });
   });
 
   group('DailyLogNotificationSummary', () {
@@ -204,6 +242,29 @@ void main() {
 
       expect(summary.body.length, lessThanOrEqualTo(240));
     });
+
+    test('reports symptoms removed from an entry', () {
+      final summary = DailyLogNotificationSummary.forChange(
+        dateKey: '2026-03-05',
+        previousData: {
+          'isPeriodDay': false,
+          'mood': null,
+          'symptoms': ['Cramps', 'Headache', 'Fatigue'],
+          'notes': '',
+          'flow': null,
+          'painLevel': null,
+        },
+        nextLog: const DailyLog(
+          dateKey: '2026-03-05',
+          isPeriodDay: false,
+          mood: null,
+          symptoms: ['Cramps'],
+          notes: '',
+        ),
+      );
+
+      expect(summary.body, contains('symptoms removed: Fatigue, Headache'));
+    });
   });
 
   group('CoupleDetails', () {
@@ -236,6 +297,33 @@ void main() {
       expect(details.isPaired, isFalse);
       expect(details.partnerOf('tracker-uid'), isNull);
       expect(details.inviteCode, 'ABCD2345');
+    });
+  });
+  group('DailyLogRevision', () {
+    test('creates a revision from a Firestore document', () async {
+      final firestore = FakeFirebaseFirestore();
+
+      await firestore.collection('dailyLogs').add({
+        'dateKey': '2026-03-05',
+        'isPeriodDay': true,
+        'mood': 'low',
+        'symptoms': ['Cramps'],
+        'notes': 'Taking it slow',
+        'flow': 'light',
+        'painLevel': 4,
+      });
+
+      final snapshot = await firestore.collection('dailyLogs').get();
+
+      final revision = DailyLogRevision.fromDocument(snapshot.docs.first);
+
+      expect(revision.log.dateKey, '2026-03-05');
+      expect(revision.log.isPeriodDay, isTrue);
+      expect(revision.log.mood, 'low');
+      expect(revision.log.symptoms, ['Cramps']);
+      expect(revision.log.notes, 'Taking it slow');
+      expect(revision.log.flow, 'light');
+      expect(revision.log.painLevel, 4);
     });
   });
 }

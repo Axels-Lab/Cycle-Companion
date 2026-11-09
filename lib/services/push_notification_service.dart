@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
@@ -120,6 +121,8 @@ class PushNotificationService {
           importance: Importance.high,
           priority: Priority.high,
           icon: 'ic_stat_notification',
+          color: Color(0xFFFFC8D8),
+          category: AndroidNotificationCategory.message, // Required for heads-up notifications
         ),
       ),
     );
