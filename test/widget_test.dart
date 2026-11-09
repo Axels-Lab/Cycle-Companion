@@ -191,7 +191,7 @@ void main() {
 
       expect(summary.title, 'Daily entry updated');
       expect(summary.body, contains('Mar 5'));
-      expect(summary.body, contains('period day logged'));
+      expect(summary.body, contains('Period day logged'));
       expect(summary.body, contains('Mood: 😰 Anxious'));
       expect(summary.body, contains('symptoms added: Cramps'));
       expect(summary.body, contains('Flow: 🩸 Light'));
