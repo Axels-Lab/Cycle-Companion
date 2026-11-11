@@ -3,9 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
 
 import 'firebase_options.dart';
 import 'screens/auth_screen.dart';
@@ -13,22 +10,11 @@ import 'screens/cycle_home_screen.dart';
 import 'screens/pairing_screen.dart';
 import 'services/app_theme_controller.dart';
 import 'services/couple_service.dart';
-import 'services/push_notification_service.dart';
 import 'services/update_service.dart';
-
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (defaultTargetPlatform != TargetPlatform.android) return;
-
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await PushNotificationService.showBackgroundNotification(message);
-}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await appThemeController.load();
   runApp(const CycleCompanionApp());
 }

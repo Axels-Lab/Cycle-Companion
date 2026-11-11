@@ -11,7 +11,7 @@ It gives one partner a simple way to keep track of their cycle, daily moods, and
 - **Mood Tracking:** Both partners can record their own daily moods and feelings, including options like needing space, wanting company, or asking for support.
 - **Symptom Logging:** Keep track of symptoms, flow, pain levels, and additional notes.
 - **Shared Updates:** Both partners can see daily entries update in real time.
-- **Push Notifications:** Both partners can receive Android notifications when the other shares or updates an entry or mood check-in. Expanded notifications show a colored app icon; Android keeps the status-bar icon monochrome.
+- **Push Notifications:** Both partners can receive Android notifications when the other shares or updates an entry or mood check-in. Foreground notifications show a colored large icon; Android controls the appearance of background notifications and keeps status-bar icons monochrome.
 - **Calendar View:** Browse cycle history and previous entries through an interactive calendar.
 - **Recent Activity:** Quickly revisit recent daily check-ins.
 - **Personalized Profiles:** Set display names and view pairing details and connection status.

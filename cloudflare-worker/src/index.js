@@ -379,7 +379,11 @@ export function buildFcmMessage(token, title, body, notificationType) {
   return {
     message: {
       token,
-      android: { priority: 'HIGH' },
+      notification: { title, body },
+      android: {
+        priority: 'HIGH',
+        notification: { channel_id: 'tracker_updates' },
+      },
       data: { type: notificationType, title, body },
     },
   };

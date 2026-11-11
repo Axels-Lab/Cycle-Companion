@@ -109,28 +109,6 @@ class PushNotificationService {
     await _showNotification(_localNotifications, message, title, body);
   }
 
-  static Future<void> showBackgroundNotification(RemoteMessage message) async {
-    // FCM renders legacy notification-payload messages itself in the background.
-    if (message.notification != null) return;
-
-    final title = message.data['title'];
-    final body = message.data['body'];
-    if (title is! String || body is! String) return;
-
-    final notifications = FlutterLocalNotificationsPlugin();
-    final initialized = await notifications.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      ),
-    );
-    if (initialized != true) {
-      throw StateError('Could not initialize push notification display.');
-    }
-
-    await _createNotificationChannel(notifications);
-    await _showNotification(notifications, message, title, body);
-  }
-
   static Future<void> _createNotificationChannel(
     FlutterLocalNotificationsPlugin notifications,
   ) async {

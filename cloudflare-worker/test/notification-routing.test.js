@@ -49,7 +49,7 @@ test('a partner cannot send a tracker daily-entry notification', () => {
   );
 });
 
-test('push messages include notification content as data for local display', () => {
+test('push messages retain Android notification display and include data', () => {
   assert.deepEqual(
     buildFcmMessage(
       'device-token',
@@ -60,7 +60,14 @@ test('push messages include notification content as data for local display', () 
     {
       message: {
         token: 'device-token',
-        android: { priority: 'HIGH' },
+        notification: {
+          title: 'Partner mood updated',
+          body: 'Feeling calm',
+        },
+        android: {
+          priority: 'HIGH',
+          notification: { channel_id: 'tracker_updates' },
+        },
         data: {
           type: 'partner_mood_updated',
           title: 'Partner mood updated',
