@@ -73,6 +73,68 @@ service cloud.firestore {
       ];
     }
 
+    function validPartnerMood(data, dateKey) {
+      return data.keys().hasOnly([
+          'dateKey',
+          'moodTags',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && data.keys().hasAll([
+          'dateKey',
+          'moodTags',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && data.dateKey == dateKey
+        && data.dateKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.moodTags is list
+        && data.moodTags.size() > 0
+        && data.moodTags.size() <= 38
+        && data.moodTags.hasOnly([
+          'great',
+          'good',
+          'okay',
+          'low',
+          'rough',
+          'calm',
+          'content',
+          'hopeful',
+          'affectionate',
+          'energized',
+          'focused',
+          'playful',
+          'tired',
+          'low_energy',
+          'sad',
+          'anxious',
+          'worried',
+          'irritable',
+          'frustrated',
+          'cranky',
+          'grumpy',
+          'overwhelmed',
+          'sensitive',
+          'lonely',
+          'restless',
+          'numb',
+          'mixed',
+          'dont_talk_to_me',
+          'leave_me_alone',
+          'need_space',
+          'not_ready_to_talk',
+          'check_in_later',
+          'want_company',
+          'need_comfort',
+          'need_reassurance',
+          'need_support',
+          'overstimulated',
+          'socially_drained'
+        ])
+        && data.updatedAt == request.time
+        && data.updatedBy == request.auth.uid;
+    }
+
     function isMember(coupleId) {
       let uid = request.auth.uid;
       let user = get(userPath(uid)).data;
@@ -96,6 +158,11 @@ service cloud.firestore {
     function isTracker(coupleId) {
       return isMember(coupleId)
         && get(userPath(request.auth.uid)).data.role == 'tracker';
+    }
+
+    function isPartner(coupleId) {
+      return isMember(coupleId)
+        && get(userPath(request.auth.uid)).data.role == 'partner';
     }
 
     function isProfileUpdate(coupleId) {
@@ -441,6 +508,13 @@ service cloud.firestore {
             && validDailyLogRevision(request.resource.data, dateKey);
           allow update, delete: if false;
         }
+      }
+
+      match /partnerMoods/{dateKey} {
+        allow read: if isMember(coupleId);
+        allow create, update: if isPartner(coupleId)
+          && validPartnerMood(request.resource.data, dateKey);
+        allow delete: if isPartner(coupleId);
       }
     }
 

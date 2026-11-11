@@ -98,6 +98,31 @@ class DailyLogNotificationSummary {
     );
   }
 
+  factory DailyLogNotificationSummary.forPartnerMoodChange({
+    required String dateKey,
+    required List<String> moods,
+  }) {
+    final date = DateTime.parse(dateKey);
+    final dateLabel = '${_months[date.month - 1]} ${date.day}';
+    final details = moods.isEmpty
+        ? 'Partner mood check-in cleared'
+        : 'Partner mood: ${_boundedMoodNames(moods)}';
+    return DailyLogNotificationSummary(
+      title: 'Partner mood updated',
+      body: '$dateLabel: $details.',
+    );
+  }
+
+  static String _boundedMoodNames(List<String> moods) {
+    const displayedMoodLimit = 4;
+    final names = moods.map((mood) => DailyLog.moods[mood] ?? mood).toList();
+    final displayedNames = names.take(displayedMoodLimit).join(', ');
+    final remainingCount = names.length - displayedMoodLimit;
+    return remainingCount > 0
+        ? '$displayedNames and $remainingCount more'
+        : displayedNames;
+  }
+
   static String _moodNames(List<String> moods) =>
       moods.map((mood) => DailyLog.moods[mood] ?? mood).join(', ');
 }

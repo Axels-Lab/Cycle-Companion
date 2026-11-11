@@ -20,6 +20,9 @@ class DailyLogService {
   CollectionReference<Map<String, dynamic>> _logs(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('dailyLogs');
 
+  CollectionReference<Map<String, dynamic>> _partnerMoods(String coupleId) =>
+      _db.collection('couples').doc(coupleId).collection('partnerMoods');
+
   Stream<List<DailyLog>> watchLogs(String coupleId) => _logs(coupleId)
       .orderBy('dateKey', descending: true)
       .snapshots()
@@ -27,6 +30,62 @@ class DailyLogService {
         (snapshot) =>
             snapshot.docs.map(DailyLog.fromDocument).toList(growable: false),
       );
+
+  Stream<PartnerMood?> watchPartnerMood(String coupleId, String dateKey) =>
+      _partnerMoods(coupleId)
+          .doc(dateKey)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.exists
+                ? PartnerMood.fromData(dateKey, snapshot.data()!)
+                : null,
+          );
+
+  Future<void> savePartnerMood(
+    String coupleId,
+    String dateKey,
+    List<String> moodTags,
+  ) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('Sign in before saving a mood check-in.');
+    }
+
+    final reference = _partnerMoods(coupleId).doc(dateKey);
+    final selectedMoods = moodTags.toSet().toList()..sort();
+    final changed = await _db.runTransaction<bool>((transaction) async {
+      final snapshot = await transaction.get(reference);
+      final currentMoods = List<String>.from(
+        snapshot.data()?['moodTags'] as List<dynamic>? ?? const [],
+      ).toSet();
+      if (setEquals(currentMoods, selectedMoods.toSet())) return false;
+
+      if (selectedMoods.isEmpty) {
+        if (snapshot.exists) transaction.delete(reference);
+        return snapshot.exists;
+      }
+
+      transaction.set(reference, {
+        ...PartnerMood(
+          dateKey: dateKey,
+          moodTags: selectedMoods,
+        ).toFirestore(user.uid),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    });
+    if (changed) {
+      await _sendPushNotification(
+        user,
+        coupleId,
+        DailyLogNotificationSummary.forPartnerMoodChange(
+          dateKey: dateKey,
+          moods: selectedMoods,
+        ),
+        notificationType: 'partner_mood_updated',
+      );
+    }
+  }
 
   Stream<List<DailyLogRevision>> watchRevisions(
     String coupleId,
@@ -69,7 +128,7 @@ class DailyLogService {
         return data;
       });
       if (previousData != null) {
-        await _notifyViewer(
+        await _sendPushNotification(
           user,
           coupleId,
           DailyLogNotificationSummary.forChange(
@@ -77,6 +136,7 @@ class DailyLogService {
             previousData: previousData,
             nextLog: null,
           ),
+          notificationType: 'daily_log_updated',
         );
       }
       return;
@@ -113,7 +173,7 @@ class DailyLogService {
           return (changed: contentChanged, previousData: currentData);
         });
     if (result.changed) {
-      await _notifyViewer(
+      await _sendPushNotification(
         user,
         coupleId,
         DailyLogNotificationSummary.forChange(
@@ -121,15 +181,17 @@ class DailyLogService {
           previousData: result.previousData,
           nextLog: log,
         ),
+        notificationType: 'daily_log_updated',
       );
     }
   }
 
-  Future<void> _notifyViewer(
+  Future<void> _sendPushNotification(
     User user,
     String coupleId,
-    DailyLogNotificationSummary summary,
-  ) async {
+    DailyLogNotificationSummary summary, {
+    required String notificationType,
+  }) async {
     if (_pushApiUrl.isEmpty) {
       debugPrint(
         'Push notification not sent: configure PUSH_API_URL for this build.',
@@ -159,12 +221,18 @@ class DailyLogService {
               'coupleId': coupleId,
               'title': summary.title,
               'message': summary.body,
+              'type': notificationType,
             }),
           )
           .timeout(const Duration(seconds: 8));
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        final responseBody = response.body.trim();
+        final responseDetails = responseBody.isEmpty
+            ? ''
+            : ': ${responseBody.substring(0, responseBody.length > 300 ? 300 : responseBody.length)}';
         debugPrint(
-          'Push notification request failed with HTTP ${response.statusCode}.',
+          'Push notification request failed with HTTP '
+          '${response.statusCode}$responseDetails.',
         );
       }
     } catch (error, stackTrace) {

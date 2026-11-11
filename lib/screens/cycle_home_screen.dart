@@ -35,7 +35,7 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
   @override
   void initState() {
     super.initState();
-    if (!widget.isTracker) unawaited(_initializePushNotifications());
+    unawaited(_initializePushNotifications());
   }
 
   Future<void> _initializePushNotifications() async {
@@ -66,6 +66,33 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
     );
   }
 
+  Future<void> _openPartnerMoodEditor(
+    String dateKey,
+    PartnerMood? partnerMood,
+  ) async {
+    final selectedMoods = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) =>
+          _MoodPickerSheet(selectedMoods: {...?partnerMood?.moodTags}),
+    );
+    if (selectedMoods == null) return;
+
+    try {
+      await _service.savePartnerMood(
+        widget.coupleId,
+        dateKey,
+        selectedMoods.toList(),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save your mood: $error')),
+      );
+    }
+  }
+
   Future<void> _openHistory(String dateKey) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -80,7 +107,7 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
 
   Future<void> _signOut() async {
     try {
-      if (!widget.isTracker) await _pushNotifications.unregister();
+      await _pushNotifications.unregister();
       await FirebaseAuth.instance.signOut();
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
@@ -147,7 +174,8 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
           final logs = snapshot.data!;
           final cycleHistory = CycleHistory.fromLogs(logs);
           final logsByDate = {for (final log in logs) log.dateKey: log};
-          final selectedLog = logsByDate[DailyLog.keyFor(_selectedDay)];
+          final selectedDateKey = DailyLog.keyFor(_selectedDay);
+          final selectedLog = logsByDate[selectedDateKey];
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -165,7 +193,7 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
                     lastDay: DateTime(2100),
                     focusedDay: _focusedDay,
                     selectedDayPredicate: (day) =>
-                        DailyLog.keyFor(day) == DailyLog.keyFor(_selectedDay),
+                        DailyLog.keyFor(day) == selectedDateKey,
                     eventLoader: (day) {
                       final log = logsByDate[DailyLog.keyFor(day)];
                       return log == null ? const [] : [log];
@@ -204,14 +232,20 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
               _SelectedDayCard(
                 date: _selectedDay,
                 log: selectedLog,
+                partnerMoodStream: _service.watchPartnerMood(
+                  widget.coupleId,
+                  selectedDateKey,
+                ),
                 isTracker: widget.isTracker,
                 onEdit: () => _openEditor(selectedLog),
-                onHistory: () => _openHistory(DailyLog.keyFor(_selectedDay)),
+                onEditPartnerMood: (partnerMood) =>
+                    _openPartnerMoodEditor(selectedDateKey, partnerMood),
+                onHistory: () => _openHistory(selectedDateKey),
                 hasHistory: selectedLog == null
                     ? null
                     : _service.watchHasRevisions(
                         widget.coupleId,
-                        DailyLog.keyFor(_selectedDay),
+                        selectedDateKey,
                       ),
               ),
               const SizedBox(height: 16),
@@ -273,7 +307,7 @@ class _WelcomeCard extends StatelessWidget {
         Text(
           isTracker
               ? 'Add a daily note whenever it feels right.'
-              : 'See your partner’s updates as they happen.',
+              : 'See your partner’s updates and share your own mood.',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -437,16 +471,20 @@ class _SelectedDayCard extends StatelessWidget {
   const _SelectedDayCard({
     required this.date,
     required this.log,
+    required this.partnerMoodStream,
     required this.isTracker,
     required this.onEdit,
+    required this.onEditPartnerMood,
     required this.onHistory,
     required this.hasHistory,
   });
 
   final DateTime date;
   final DailyLog? log;
+  final Stream<PartnerMood?> partnerMoodStream;
   final bool isTracker;
   final VoidCallback onEdit;
+  final ValueChanged<PartnerMood?> onEditPartnerMood;
   final VoidCallback onHistory;
   final Stream<bool>? hasHistory;
 
@@ -466,11 +504,55 @@ class _SelectedDayCard extends StatelessWidget {
             const SizedBox(height: 10),
             if (log == null)
               Text(
-                'No entry for this day yet.',
+                'No cycle entry for this day yet.',
                 style: theme.textTheme.bodyMedium,
               )
             else
               _LogDetails(log: log!),
+            StreamBuilder<PartnerMood?>(
+              stream: partnerMoodStream,
+              builder: (context, snapshot) {
+                final partnerMood = snapshot.data;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (snapshot.hasError)
+                      Text(
+                        'Could not load partner mood: ${snapshot.error}',
+                        style: TextStyle(color: theme.colorScheme.error),
+                      )
+                    else if (partnerMood != null)
+                      _DetailLine(
+                        icon: Icons.mood_outlined,
+                        label:
+                            '${isTracker ? 'Partner' : 'Your'} mood: '
+                            '${partnerMood.moodTags.map((mood) => DailyLog.moods[mood] ?? mood).join(' · ')}',
+                      )
+                    else if (isTracker &&
+                        snapshot.connectionState != ConnectionState.waiting)
+                      Text(
+                        'Your partner has not shared a mood for this day.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    if (!isTracker) ...[
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.tonalIcon(
+                          onPressed: () => onEditPartnerMood(partnerMood),
+                          icon: const Icon(Icons.mood_outlined),
+                          label: Text(
+                            partnerMood == null
+                                ? 'Share your mood'
+                                : 'Edit your mood',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
             if (log != null && hasHistory != null)
               StreamBuilder<bool>(
                 stream: hasHistory,
@@ -522,6 +604,7 @@ class _CycleHistoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final periods = history.periods.reversed.take(5).toList();
+    final prediction = history.predictedNextPeriodStart;
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -529,7 +612,28 @@ class _CycleHistoryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Cycle history', style: theme.textTheme.titleLarge),
+            Text('Next period estimate', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 4),
+            if (prediction case final date?)
+              Text(
+                MaterialLocalizations.of(context).formatMediumDate(date),
+                style: theme.textTheme.titleMedium,
+              )
+            else
+              const Text('Log at least two period starts to get an estimate.'),
+            if (prediction != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Based on ${history.periods.length - 1} logged '
+                '${history.periods.length == 2 ? 'cycle' : 'cycles'}. '
+                'Cycle timing can vary; this is only an estimate.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const Divider(height: 28),
+            Text('Cycle history', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             if (history.averageCycleLengthDays case final average?)
               Text('Average logged cycle: $average days')
@@ -561,13 +665,6 @@ class _CycleHistoryCard extends StatelessWidget {
                   ),
                 ),
             ],
-            const SizedBox(height: 8),
-            Text(
-              'History is based on consecutive dates marked as period; it does not predict future cycles.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
           ],
         ),
       ),

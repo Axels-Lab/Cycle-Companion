@@ -85,6 +85,30 @@ void main() {
       expect(log.selectedMoods, ['low']);
     });
 
+    test('stores partner moods separately from the tracker entry', () {
+      const partnerMood = PartnerMood(
+        dateKey: '2026-03-05',
+        moodTags: ['anxious', 'need_support'],
+      );
+      final stored = partnerMood.toFirestore('partner-uid');
+      final restored = PartnerMood.fromData('2026-03-05', stored);
+      const trackerLog = DailyLog(
+        dateKey: '2026-03-05',
+        isPeriodDay: false,
+        mood: 'good',
+        symptoms: [],
+        notes: '',
+      );
+
+      expect(stored, {
+        'dateKey': '2026-03-05',
+        'moodTags': ['anxious', 'need_support'],
+        'updatedBy': 'partner-uid',
+      });
+      expect(restored.moodTags, ['anxious', 'need_support']);
+      expect(trackerLog.selectedMoods, ['good']);
+    });
+
     test('keeps an optional pain-only entry', () {
       const log = DailyLog(
         dateKey: '2026-03-05',
@@ -121,11 +145,13 @@ void main() {
       expect(history.periods.first.loggedDays, 3);
       expect(history.periods.first.lastLoggedDate, DateTime(2026, 2, 3));
       expect(history.averageCycleLengthDays, 28);
+      expect(history.predictedNextPeriodStart, DateTime(2026, 3, 29));
     });
 
     test('returns an empty history without period days', () {
       expect(CycleHistory.fromLogs(const []).periods, isEmpty);
       expect(CycleHistory.fromLogs(const []).averageCycleLengthDays, isNull);
+      expect(CycleHistory.fromLogs(const []).predictedNextPeriodStart, isNull);
     });
     test('parses the date key into a DateTime', () {
       const log = DailyLog(
@@ -167,6 +193,33 @@ void main() {
   });
 
   group('DailyLogNotificationSummary', () {
+    test('includes partner mood labels in notifications', () {
+      final summary = DailyLogNotificationSummary.forPartnerMoodChange(
+        dateKey: '2026-03-05',
+        moods: ['anxious', 'need_support'],
+      );
+
+      expect(summary.title, 'Partner mood updated');
+      expect(summary.body, contains('Mar 5'));
+      expect(summary.body, contains('😰 Anxious'));
+      expect(summary.body, contains('🫂 I need support'));
+    });
+
+    test('summarizes long mood lists and reports a cleared check-in', () {
+      final longSummary = DailyLogNotificationSummary.forPartnerMoodChange(
+        dateKey: '2026-03-05',
+        moods: DailyLog.moods.keys.take(6).toList(),
+      );
+      final clearedSummary = DailyLogNotificationSummary.forPartnerMoodChange(
+        dateKey: '2026-03-05',
+        moods: const [],
+      );
+
+      expect(longSummary.body, contains('and 2 more'));
+      expect(longSummary.body.length, lessThanOrEqualTo(240));
+      expect(clearedSummary.body, 'Mar 5: Partner mood check-in cleared.');
+    });
+
     test('describes fields changed without including note contents', () {
       final summary = DailyLogNotificationSummary.forChange(
         dateKey: '2026-03-05',

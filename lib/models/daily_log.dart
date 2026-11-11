@@ -151,6 +151,31 @@ class DailyLogRevision {
   }
 }
 
+class PartnerMood {
+  const PartnerMood({
+    required this.dateKey,
+    required this.moodTags,
+    this.updatedAt,
+  });
+
+  final String dateKey;
+  final List<String> moodTags;
+  final DateTime? updatedAt;
+
+  factory PartnerMood.fromData(String dateKey, Map<String, dynamic> data) =>
+      PartnerMood(
+        dateKey: dateKey,
+        moodTags: List<String>.from(data['moodTags'] as List<dynamic>),
+        updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      );
+
+  Map<String, Object?> toFirestore(String updatedBy) => {
+    'dateKey': dateKey,
+    'moodTags': moodTags,
+    'updatedBy': updatedBy,
+  };
+}
+
 class PeriodEpisode {
   const PeriodEpisode({
     required this.startDate,
@@ -175,6 +200,17 @@ class CycleHistory {
         _daysBetween(periods[index - 1].startDate, periods[index].startDate),
     ];
     return (lengths.reduce((a, b) => a + b) / lengths.length).round();
+  }
+
+  DateTime? get predictedNextPeriodStart {
+    final cycleLength = averageCycleLengthDays;
+    if (cycleLength == null || periods.isEmpty) return null;
+    final lastStart = periods.last.startDate;
+    return DateTime(
+      lastStart.year,
+      lastStart.month,
+      lastStart.day + cycleLength,
+    );
   }
 
   static CycleHistory fromLogs(Iterable<DailyLog> logs) {

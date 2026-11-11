@@ -11,9 +11,15 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class PushNotificationService {
   static const _channelId = 'tracker_updates';
-  static const _channelName = 'Tracker updates';
+  static const _channelName = 'Shared updates';
   static const _channelDescription =
-      'Notifications when your tracker updates a daily entry.';
+      'Notifications for shared cycle and mood updates.';
+  static const _channel = AndroidNotificationChannel(
+    _channelId,
+    _channelName,
+    description: _channelDescription,
+    importance: Importance.high,
+  );
 
   final _messaging = FirebaseMessaging.instance;
   final _firestore = FirebaseFirestore.instance;
@@ -41,18 +47,7 @@ class PushNotificationService {
     if (initialized != true) {
       throw StateError('Could not initialize push notification display.');
     }
-    final android = _localNotifications
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
-    await android?.createNotificationChannel(
-      const AndroidNotificationChannel(
-        _channelId,
-        _channelName,
-        description: _channelDescription,
-        importance: Importance.high,
-      ),
-    );
+    await _createNotificationChannel(_localNotifications);
 
     final token = await _getRegistrationToken();
     if (token != null) await _saveToken(token);
@@ -107,13 +102,56 @@ class PushNotificationService {
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {
     final notification = message.notification;
-    if (notification == null) return;
+    final title = notification?.title ?? message.data['title'];
+    final body = notification?.body ?? message.data['body'];
+    if (title is! String || body is! String) return;
 
-    await _localNotifications.show(
+    await _showNotification(_localNotifications, message, title, body);
+  }
+
+  static Future<void> showBackgroundNotification(RemoteMessage message) async {
+    // FCM renders legacy notification-payload messages itself in the background.
+    if (message.notification != null) return;
+
+    final title = message.data['title'];
+    final body = message.data['body'];
+    if (title is! String || body is! String) return;
+
+    final notifications = FlutterLocalNotificationsPlugin();
+    final initialized = await notifications.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      ),
+    );
+    if (initialized != true) {
+      throw StateError('Could not initialize push notification display.');
+    }
+
+    await _createNotificationChannel(notifications);
+    await _showNotification(notifications, message, title, body);
+  }
+
+  static Future<void> _createNotificationChannel(
+    FlutterLocalNotificationsPlugin notifications,
+  ) async {
+    final android = notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    await android?.createNotificationChannel(_channel);
+  }
+
+  static Future<void> _showNotification(
+    FlutterLocalNotificationsPlugin notifications,
+    RemoteMessage message,
+    String title,
+    String body,
+  ) {
+    return notifications.show(
       id: message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
-      title: notification.title ?? 'Cycle Companion',
-      body: notification.body ?? 'Your tracker updated a daily entry.',
-      notificationDetails: const NotificationDetails(
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
@@ -121,8 +159,12 @@ class PushNotificationService {
           importance: Importance.high,
           priority: Priority.high,
           icon: 'ic_stat_notification',
-          color: Color(0xFFFFC8D8),
-          category: AndroidNotificationCategory.message, // Required for heads-up notifications
+          color: const Color(0xFFFFC8D8),
+          largeIcon: const DrawableResourceAndroidBitmap(
+            'ic_stat_notification_large',
+          ),
+          styleInformation: BigTextStyleInformation(body),
+          category: AndroidNotificationCategory.message,
         ),
       ),
     );

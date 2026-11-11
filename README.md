@@ -7,11 +7,11 @@ It gives one partner a simple way to keep track of their cycle, daily moods, and
 ## ✨ Features
 
 - **Partner Pairing:** Connect two accounts using a simple invite code.
-- **Cycle Tracking:** Mark period days and keep track of daily cycle entries.
-- **Mood Tracking:** Record daily moods and feelings, including options like needing space, wanting company, or asking for support.
+- **Cycle Tracking:** Mark period days, review cycle history, and see an estimated next period start based on logged cycles.
+- **Mood Tracking:** Both partners can record their own daily moods and feelings, including options like needing space, wanting company, or asking for support.
 - **Symptom Logging:** Keep track of symptoms, flow, pain levels, and additional notes.
 - **Shared Updates:** Both partners can see daily entries update in real time.
-- **Push Notifications:** The viewing partner receives notifications when daily entries are added, updated, or deleted, even when the app is closed (Android).
+- **Push Notifications:** Both partners can receive Android notifications when the other shares or updates an entry or mood check-in. Expanded notifications show a colored app icon; Android keeps the status-bar icon monochrome.
 - **Calendar View:** Browse cycle history and previous entries through an interactive calendar.
 - **Recent Activity:** Quickly revisit recent daily check-ins.
 - **Personalized Profiles:** Set display names and view pairing details and connection status.
@@ -21,19 +21,21 @@ It gives one partner a simple way to keep track of their cycle, daily moods, and
 Cycle Companion has two roles:
 
 - **Tracker:** The partner who records cycle information, moods, and daily symptoms.
-- **Viewer:** The partner who follows the updates and stays informed.
+- **Viewer:** The partner who follows cycle updates and can also add their own mood check-ins.
 
 One person creates an invite and chooses their role. The other joins using the invite code and automatically receives the opposite role.
 
-Once paired, daily entries are shared between both accounts. The tracker manages the entries, while the viewer has read-only access.
+Once paired, cycle entries are shared between both accounts. The tracker manages cycle entries, and the viewer can add or edit their own separate mood check-ins.
 
 ## 🔒 Privacy
 
 Your shared information is accessible only to the two accounts in a pairing.
 
 - Partner email addresses are never shared.
-- Only the tracker can create, edit, or delete daily entries.
-- The viewer can access shared entries but cannot modify them.
+- Only the tracker can create, edit, or delete cycle entries.
+- The viewer can read cycle entries and manage only their own mood check-ins.
+- Both partners can see the next-period estimate, which is based on the shared cycle history and is not medical advice or contraception.
+- Mood-check-in notifications include selected moods, which may be visible on a device's lock screen.
 - Personal notes are never included in push notification content.
 
 **Important:** Pair only with someone you trust. Both partners have access to the shared cycle and mood information. Unpairing and data deletion controls are not currently available.

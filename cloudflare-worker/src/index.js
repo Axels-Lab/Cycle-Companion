@@ -37,14 +37,27 @@ export default {
     }
 
     try {
+      const notificationType = body?.type ?? 'daily_log_updated';
+      const validTitle =
+        notificationType === 'daily_log_updated'
+          ? [
+              'Daily entry added',
+              'Daily entry updated',
+              'Daily entry deleted',
+            ].includes(body?.title)
+          : notificationType === 'partner_mood_updated' &&
+            body?.title === 'Partner mood updated';
+      const validMessage =
+        typeof body?.message === 'string' &&
+        body.message.length > 0 &&
+        body.message.length <= 240;
       if (
         !body ||
         typeof body.coupleId !== 'string' ||
         !/^[A-Za-z0-9_-]{1,128}$/.test(body.coupleId) ||
-        !['Daily entry added', 'Daily entry updated', 'Daily entry deleted'].includes(body.title) ||
-        typeof body.message !== 'string' ||
-        body.message.length === 0 ||
-        body.message.length > 240
+        !['daily_log_updated', 'partner_mood_updated'].includes(notificationType) ||
+        !validTitle ||
+        !validMessage
       ) {
         return respond({ error: 'Invalid request' }, 400);
       }
@@ -61,23 +74,20 @@ export default {
       );
       if (!couple) return respond({ error: 'Pairing not found' }, 404);
 
-      const members = couple.members;
-      const roles = couple.roles ?? {};
-      if (!Array.isArray(members) || roles[uid] !== 'tracker' || !members.includes(uid)) {
-        return respond(
-          { error: 'Only the paired tracker can send this notification' },
-          403,
-        );
-      }
-      const viewers = members.filter((member) => member !== uid && roles[member] === 'partner');
-      if (viewers.length !== 1) {
-        return respond({ error: 'Pairing has no single viewer' }, 409);
+      const route = getNotificationRoute(
+        notificationType,
+        uid,
+        couple.members,
+        couple.roles ?? {},
+      );
+      if (route.status !== 200) {
+        return respond({ error: route.error }, route.status);
       }
 
-      const viewerUid = viewers[0];
+      const recipientUid = route.recipientUid;
       const deviceDocuments = await listDeviceDocuments(
         firebaseProjectId,
-        viewerUid,
+        recipientUid,
         googleToken,
       );
       let sent = 0;
@@ -91,11 +101,12 @@ export default {
           token,
           body.title,
           body.message,
+          notificationType,
         );
         if (result === 'unregistered') {
           await deleteDeviceDocument(
             firebaseProjectId,
-            viewerUid,
+            recipientUid,
             device.name,
             googleToken,
           );
@@ -116,6 +127,43 @@ export default {
     }
   },
 };
+
+export function getNotificationRoute(notificationType, senderUid, members, roles) {
+  const expectedRoles =
+    notificationType === 'daily_log_updated'
+      ? { sender: 'tracker', recipient: 'partner' }
+      : notificationType === 'partner_mood_updated'
+        ? { sender: 'partner', recipient: 'tracker' }
+        : null;
+  if (!expectedRoles) {
+    return { status: 400, error: 'Unsupported notification type' };
+  }
+  if (
+    !Array.isArray(members) ||
+    !members.includes(senderUid) ||
+    roles[senderUid] !== expectedRoles.sender
+  ) {
+    return {
+      status: 403,
+      error: `Only the paired ${expectedRoles.sender} can send this notification`,
+    };
+  }
+
+  const recipients = members.filter(
+    (member) =>
+      member !== senderUid && roles[member] === expectedRoles.recipient,
+  );
+  if (recipients.length !== 1) {
+    return {
+      status: 409,
+      error: `Pairing has no single ${expectedRoles.recipient}`,
+    };
+  }
+  return {
+    status: 200,
+    recipientUid: recipients[0],
+  };
+}
 
 class UnauthorizedError extends Error {}
 
@@ -271,7 +319,7 @@ async function listDeviceDocuments(projectId, uid, accessToken) {
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!response.ok) throw new Error('Viewer device lookup failed.');
+    if (!response.ok) throw new Error('Recipient device lookup failed.');
     const result = await response.json();
     documents.push(...(result.documents ?? []));
     pageToken = result.nextPageToken;
@@ -296,7 +344,14 @@ async function deleteDeviceDocument(projectId, uid, documentName, accessToken) {
   }
 }
 
-async function sendPush(projectId, accessToken, token, title, body) {
+async function sendPush(
+  projectId,
+  accessToken,
+  token,
+  title,
+  body,
+  notificationType,
+) {
   const response = await fetch(
     `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`,
     {
@@ -305,20 +360,9 @@ async function sendPush(projectId, accessToken, token, title, body) {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        message: {
-          token,
-          notification: {
-            title,
-            body,
-          },
-          android: {
-            priority: 'HIGH',
-            notification: { channel_id: 'tracker_updates' },
-          },
-          data: { type: 'daily_log_updated' },
-        },
-      }),
+      body: JSON.stringify(
+        buildFcmMessage(token, title, body, notificationType),
+      ),
     },
   );
   if (response.ok) return 'sent';
@@ -329,6 +373,16 @@ async function sendPush(projectId, accessToken, token, title, body) {
     result.error?.details?.some((detail) => detail.errorCode === 'UNREGISTERED');
   if (isUnregistered) return 'unregistered';
   throw new Error(`FCM rejected a notification with HTTP ${response.status}.`);
+}
+
+export function buildFcmMessage(token, title, body, notificationType) {
+  return {
+    message: {
+      token,
+      android: { priority: 'HIGH' },
+      data: { type: notificationType, title, body },
+    },
+  };
 }
 
 function decodeFields(fields) {
