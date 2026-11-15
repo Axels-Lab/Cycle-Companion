@@ -213,6 +213,34 @@ class CycleHistory {
     );
   }
 
+  DateTime? get estimatedFertileWindowStart {
+    final nextPeriodStart = predictedNextPeriodStart;
+    if (nextPeriodStart == null) return null;
+    return DateTime(
+      nextPeriodStart.year,
+      nextPeriodStart.month,
+      nextPeriodStart.day - 19,
+    );
+  }
+
+  DateTime? get estimatedFertileWindowEnd {
+    final nextPeriodStart = predictedNextPeriodStart;
+    if (nextPeriodStart == null) return null;
+    return DateTime(
+      nextPeriodStart.year,
+      nextPeriodStart.month,
+      nextPeriodStart.day - 13,
+    );
+  }
+
+  bool isEstimatedFertileDay(DateTime date) {
+    final start = estimatedFertileWindowStart;
+    final end = estimatedFertileWindowEnd;
+    if (start == null || end == null) return false;
+    final day = DateTime(date.year, date.month, date.day);
+    return !day.isBefore(start) && !day.isAfter(end);
+  }
+
   static CycleHistory fromLogs(Iterable<DailyLog> logs) {
     final periodDates =
         logs

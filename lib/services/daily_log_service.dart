@@ -234,6 +234,20 @@ class DailyLogService {
           'Push notification request failed with HTTP '
           '${response.statusCode}$responseDetails.',
         );
+        return;
+      }
+
+      final responseData = jsonDecode(response.body);
+      if (responseData is Map<String, dynamic>) {
+        final sent = responseData['sent'];
+        if (sent == 0) {
+          debugPrint(
+            'Push notification not delivered: the recipient has no registered '
+            'Android device token.',
+          );
+        } else if (sent is int && sent > 0) {
+          debugPrint('Push notification accepted by FCM for $sent device(s).');
+        }
       }
     } catch (error, stackTrace) {
       debugPrint('Push notification request failed: $error');

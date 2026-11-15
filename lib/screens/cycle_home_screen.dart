@@ -12,6 +12,11 @@ import '../services/push_notification_service.dart';
 import 'profile_screen.dart';
 import 'reminder_settings_screen.dart';
 
+const _periodDayFill = Color(0xFFF4B0BE);
+const _periodDayText = Color(0xFF702A3B);
+const _fertileDayFill = Color(0xFFFFE2B8);
+const _fertileDayText = Color(0xFF684115);
+
 class CycleHomeScreen extends StatefulWidget {
   const CycleHomeScreen({
     required this.coupleId,
@@ -150,7 +155,7 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
           IconButton(
             tooltip: 'Account and settings',
             onPressed: _openProfile,
-            icon: const Icon(Icons.account_circle_outlined),
+            icon: const Icon(Icons.settings_outlined),
           ),
           IconButton(
             tooltip: 'Sign out',
@@ -176,6 +181,37 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
           final logsByDate = {for (final log in logs) log.dateKey: log};
           final selectedDateKey = DailyLog.keyFor(_selectedDay);
           final selectedLog = logsByDate[selectedDateKey];
+          final colorScheme = Theme.of(context).colorScheme;
+
+          Widget buildCalendarDay(
+            DateTime day, {
+            required bool isSelected,
+            required bool isToday,
+            bool isOutside = false,
+          }) {
+            final log = logsByDate[DailyLog.keyFor(day)];
+            final isPeriodDay = log?.isPeriodDay == true;
+            final isFertileDay =
+                !isPeriodDay && cycleHistory.isEstimatedFertileDay(day);
+            return _CalendarDayCell(
+              day: day.day,
+              fillColor: isPeriodDay
+                  ? _periodDayFill
+                  : isFertileDay
+                  ? _fertileDayFill
+                  : null,
+              textColor: isPeriodDay
+                  ? _periodDayText
+                  : isFertileDay
+                  ? _fertileDayText
+                  : isOutside
+                  ? colorScheme.onSurface.withValues(alpha: 0.38)
+                  : colorScheme.onSurface,
+              primaryColor: colorScheme.primary,
+              isSelected: isSelected,
+              isToday: isToday,
+            );
+          }
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -188,43 +224,96 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
                 margin: EdgeInsets.zero,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-                  child: TableCalendar<DailyLog>(
-                    firstDay: DateTime(2020),
-                    lastDay: DateTime(2100),
-                    focusedDay: _focusedDay,
-                    selectedDayPredicate: (day) =>
-                        DailyLog.keyFor(day) == selectedDateKey,
-                    eventLoader: (day) {
-                      final log = logsByDate[DailyLog.keyFor(day)];
-                      return log == null ? const [] : [log];
-                    },
-                    onDaySelected: (selectedDay, focusedDay) {
-                      setState(() {
-                        _selectedDay = selectedDay;
-                        _focusedDay = focusedDay;
-                      });
-                    },
-                    onPageChanged: (focusedDay) =>
-                        setState(() => _focusedDay = focusedDay),
-                    headerStyle: const HeaderStyle(
-                      formatButtonVisible: false,
-                      titleCentered: true,
-                    ),
-                    calendarStyle: CalendarStyle(
-                      markerDecoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TableCalendar<DailyLog>(
+                        firstDay: DateTime(2020),
+                        lastDay: DateTime(2100),
+                        focusedDay: _focusedDay,
+                        selectedDayPredicate: (day) =>
+                            DailyLog.keyFor(day) == selectedDateKey,
+                        eventLoader: (day) {
+                          final log = logsByDate[DailyLog.keyFor(day)];
+                          return log == null ? const [] : [log];
+                        },
+                        onDaySelected: (selectedDay, focusedDay) {
+                          setState(() {
+                            _selectedDay = selectedDay;
+                            _focusedDay = focusedDay;
+                          });
+                        },
+                        onPageChanged: (focusedDay) =>
+                            setState(() => _focusedDay = focusedDay),
+                        headerStyle: const HeaderStyle(
+                          formatButtonVisible: false,
+                          titleCentered: true,
+                        ),
+                        calendarBuilders: CalendarBuilders<DailyLog>(
+                          defaultBuilder: (context, day, focusedDay) =>
+                              buildCalendarDay(
+                                day,
+                                isSelected: false,
+                                isToday: false,
+                              ),
+                          selectedBuilder: (context, day, focusedDay) =>
+                              buildCalendarDay(
+                                day,
+                                isSelected: true,
+                                isToday: false,
+                              ),
+                          todayBuilder: (context, day, focusedDay) =>
+                              buildCalendarDay(
+                                day,
+                                isSelected: false,
+                                isToday: true,
+                              ),
+                          outsideBuilder: (context, day, focusedDay) =>
+                              buildCalendarDay(
+                                day,
+                                isSelected: false,
+                                isToday: false,
+                                isOutside: true,
+                              ),
+                        ),
+                        calendarStyle: CalendarStyle(
+                          markerDecoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          todayDecoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.18),
+                            shape: BoxShape.circle,
+                          ),
+                          selectedDecoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
-                      todayDecoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary
-                            .withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 8,
+                        children: [
+                          _CalendarLegendItem(
+                            color: _periodDayFill,
+                            label: 'Period',
+                          ),
+                          _CalendarLegendItem(
+                            color: _fertileDayFill,
+                            label: 'Estimated fertile window',
+                          ),
+                        ],
                       ),
-                      selectedDecoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
+                      const SizedBox(height: 8),
+                      Text(
+                        'Fertile dates are estimates based on logged cycles '
+                        'and should not be used as contraception.',
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -284,6 +373,71 @@ class _CycleHomeScreenState extends State<CycleHomeScreen> {
       ),
     );
   }
+}
+
+class _CalendarDayCell extends StatelessWidget {
+  const _CalendarDayCell({
+    required this.day,
+    required this.fillColor,
+    required this.textColor,
+    required this.primaryColor,
+    required this.isSelected,
+    required this.isToday,
+  });
+
+  final int day;
+  final Color? fillColor;
+  final Color textColor;
+  final Color primaryColor;
+  final bool isSelected;
+  final bool isToday;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: fillColor,
+            shape: BoxShape.circle,
+            border: isSelected || isToday
+                ? Border.all(color: primaryColor, width: isSelected ? 2 : 1)
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              '$day',
+              style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarLegendItem extends StatelessWidget {
+  const _CalendarLegendItem({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 6),
+      Text(label, style: Theme.of(context).textTheme.bodySmall),
+    ],
+  );
 }
 
 class _WelcomeCard extends StatelessWidget {

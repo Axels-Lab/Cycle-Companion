@@ -146,12 +146,28 @@ void main() {
       expect(history.periods.first.lastLoggedDate, DateTime(2026, 2, 3));
       expect(history.averageCycleLengthDays, 28);
       expect(history.predictedNextPeriodStart, DateTime(2026, 3, 29));
+      expect(history.estimatedFertileWindowStart, DateTime(2026, 3, 10));
+      expect(history.estimatedFertileWindowEnd, DateTime(2026, 3, 16));
+      expect(history.isEstimatedFertileDay(DateTime(2026, 3, 10)), isTrue);
+      expect(history.isEstimatedFertileDay(DateTime(2026, 3, 16)), isTrue);
+      expect(history.isEstimatedFertileDay(DateTime(2026, 3, 9)), isFalse);
+      expect(history.isEstimatedFertileDay(DateTime(2026, 3, 17)), isFalse);
     });
 
     test('returns an empty history without period days', () {
       expect(CycleHistory.fromLogs(const []).periods, isEmpty);
       expect(CycleHistory.fromLogs(const []).averageCycleLengthDays, isNull);
       expect(CycleHistory.fromLogs(const []).predictedNextPeriodStart, isNull);
+      expect(
+        CycleHistory.fromLogs(const []).estimatedFertileWindowStart,
+        isNull,
+      );
+      expect(CycleHistory.fromLogs(const []).estimatedFertileWindowEnd, isNull);
+      expect(
+        CycleHistory.fromLogs(const [])
+            .isEstimatedFertileDay(DateTime(2026, 3, 10)),
+        isFalse,
+      );
     });
     test('parses the date key into a DateTime', () {
       const log = DailyLog(

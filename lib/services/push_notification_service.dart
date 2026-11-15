@@ -36,6 +36,7 @@ class PushNotificationService {
     final settings = await _messaging.requestPermission();
     if (settings.authorizationStatus != AuthorizationStatus.authorized &&
         settings.authorizationStatus != AuthorizationStatus.provisional) {
+      debugPrint('Push notification permission was not granted.');
       return;
     }
 
@@ -49,8 +50,17 @@ class PushNotificationService {
     }
     await _createNotificationChannel(_localNotifications);
 
-    final token = await _getRegistrationToken();
-    if (token != null) await _saveToken(token);
+    _messageSubscription = FirebaseMessaging.onMessage.listen(
+      (message) => unawaited(
+        _showForegroundNotification(message)
+            .catchError((Object error, StackTrace stackTrace) {
+              debugPrint(
+                'Could not display a foreground push notification: $error',
+              );
+              debugPrintStack(stackTrace: stackTrace);
+            }),
+      ),
+    );
     _tokenSubscription = _registrationTokenRefreshes.listen(
       (token) => unawaited(
         _saveToken(token).catchError((Object error) {
@@ -64,9 +74,13 @@ class PushNotificationService {
         debugPrintStack(stackTrace: stackTrace);
       },
     );
-    _messageSubscription = FirebaseMessaging.onMessage.listen(
-      _showForegroundNotification,
-    );
+
+    final token = await _getRegistrationToken();
+    if (token == null) {
+      debugPrint('Firebase Messaging returned no registration token.');
+    } else {
+      await _saveToken(token);
+    }
   }
 
   Future<void> _saveToken(String token) async {
@@ -107,6 +121,7 @@ class PushNotificationService {
     if (title is! String || body is! String) return;
 
     await _showNotification(_localNotifications, message, title, body);
+    debugPrint('Displayed a foreground push notification.');
   }
 
   static Future<void> _createNotificationChannel(
