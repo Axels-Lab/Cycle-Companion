@@ -43,6 +43,27 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _showForgotPasswordInfo() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Forgot password?'),
+        content: const Text(
+          'Password recovery by email is not available yet, so no reset '
+          'email will be sent. If you are signed in on another device, you '
+          'can change your password in Account & Settings. Otherwise, you '
+          'will need email-based recovery when it becomes available.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _email.dispose();
@@ -159,6 +180,11 @@ class _AuthScreenState extends State<AuthScreen> {
                               : Text(_isLogin ? 'Log in' : 'Sign up'),
                         ),
                       ),
+                      if (_isLogin)
+                        TextButton(
+                          onPressed: _loading ? null : _showForgotPasswordInfo,
+                          child: const Text('Forgot password?'),
+                        ),
                       TextButton(
                         onPressed: _loading
                             ? null

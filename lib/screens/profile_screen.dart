@@ -74,6 +74,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await UpdateService().checkForUpdate(context, manual: true);
   }
 
+  Future<void> _changePassword() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _ChangePasswordDialog(),
+    );
+    if (changed != true || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Password updated successfully.')),
+    );
+  }
+
   String _roleLabel(String? role) => switch (role) {
     'tracker' => 'Cycle tracker',
     'partner' => 'Support partner',
@@ -177,6 +188,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 )
                               : const Text('Save name'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Account security', style: theme.textTheme.titleLarge),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Change the password you use to sign in.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _changePassword,
+                          icon: const Icon(Icons.lock_reset_outlined),
+                          label: const Text('Change password'),
                         ),
                       ),
                     ],
@@ -340,6 +378,159 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog();
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _currentPassword = TextEditingController();
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _currentPassword.dispose();
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email;
+    if (user == null ||
+        email == null ||
+        !user.providerData.any((provider) => provider.providerId == 'password')) {
+      setState(
+        () => _error = 'Password changes are not available for this account.',
+      );
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: _currentPassword.text,
+      );
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(_newPassword.text);
+      if (mounted) Navigator.of(context).pop(true);
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = switch (error.code) {
+        'invalid-credential' || 'wrong-password' =>
+          'Your current password is incorrect.',
+        'weak-password' => 'Choose a stronger password.',
+        'requires-recent-login' =>
+          'Please sign in again before changing your password.',
+        'network-request-failed' =>
+          'Check your internet connection and try again.',
+        _ => error.message ?? 'Could not change your password.',
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Change password'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _currentPassword,
+                enabled: !_saving,
+                obscureText: true,
+                autofillHints: const [AutofillHints.password],
+                decoration: const InputDecoration(
+                  labelText: 'Current password',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Enter your current password.'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _newPassword,
+                enabled: !_saving,
+                obscureText: true,
+                autofillHints: const [AutofillHints.newPassword],
+                decoration: const InputDecoration(
+                  labelText: 'New password',
+                  helperText: 'At least 6 characters',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value == null || value.length < 6
+                    ? 'Use at least 6 characters.'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _confirmPassword,
+                enabled: !_saving,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm new password',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value != _newPassword.text
+                    ? 'Passwords do not match.'
+                    : null,
+                onFieldSubmitted: (_) {
+                  if (!_saving) _submit();
+                },
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: TextStyle(color: colorScheme.error),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Update password'),
+        ),
+      ],
     );
   }
 }
